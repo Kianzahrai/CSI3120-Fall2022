@@ -1,0 +1,138 @@
+# Grammar 1 ( with no recursion, non-ambiguous )
+# A -> B + C
+# B -> "0"|"1"|"2"|"3"|"4"
+# C -> "4"|"5"|"6"|"7"|"8"|"9"
+
+grammar_dict1 = {"A": ["B+C"], "B": ["0", "1", "2", "3", "4"], "C": ["4", "5", "6", "7", "8", "9"]}
+non_terminals1 = ["A", "B", "C"]
+terminals1 = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+start_symbol1 = "A"
+exp_tokens1 = ["+"]
+grammar_1 = {"grammar_d": grammar_dict1, "non_terminals": non_terminals1, "terminals": terminals1,
+             "exp_tokens": exp_tokens1, "start_symbol": start_symbol1}
+
+# Grammar 2 (with recursion, is ambiguous)
+# A -> B+C|D
+# B -> "a"|"b"|B+B
+# C -> "a"|"b"|"d"
+# D -> "j"
+grammar_dict2 = {"A": ["B+C", "D"], "B": ["a", "b", "B+B"], "C": ["a", "b", "d"], "D": ["j"]}
+non_terminals2 = ["A", "B", "C", "D"]
+terminals2 = ["a", "b", "d", "j"]
+exp_tokens2 = ["+"]
+start_symbol2 = "A"
+grammar_2 = {"grammar_d": grammar_dict2, "non_terminals": non_terminals2,
+             "terminals": terminals2, "exp_tokens": exp_tokens2, "start_symbol": start_symbol2}
+
+
+# define expression length in this scenario as the number of terminals + non-terminals
+def get_exp_length(exp, exp_tokens):
+    counter = 0
+    for c in exp:
+        if c not in exp_tokens and c != "|":
+            counter += 1
+    return counter
+
+
+def is_all_terminals(exp, non_terminals):
+    for c in exp:
+        if c in non_terminals or c == "!":
+            return False
+    return True
+
+
+def flatten_list_of_strings(strs):
+    flattened_l = []
+    for str in strs:
+        for c in str:
+            flattened_l.append(c)
+    return flattened_l
+
+
+# this is a hack to get around nested lists not being hashable
+def convert_list_to_tuples(l):
+    tuple_list = []
+    for val in l:
+        tuple_list.append(tuple(val))
+    return tuple_list
+
+
+def join_alternations(str_arr):
+    alternation_str = ""
+    if len(str_arr) == 1:
+        return str_arr[0]
+    else:
+        for i, str in enumerate(str_arr):
+            if i != len(str_arr)-1:
+                alternation_str += str+"|"
+            else:
+                alternation_str += str
+    return alternation_str
+
+
+def gen_all_strings(grammar, max_len=3):
+    first_exp = grammar["grammar_d"][grammar["start_symbol"]]
+    first_exp = join_alternations(first_exp)
+    first_exp = list(first_exp)
+    all_exps = parse_grammar_all_paths(first_exp, grammar["non_terminals"], grammar["grammar_d"], grammar["exp_tokens"], max_len)
+    all_exps = convert_list_to_tuples(all_exps)
+    print(all_exps)
+    set_all_exps = set(all_exps)
+    if len(all_exps) != len(set_all_exps):
+        print("Ambiguous grammar!")
+    else:
+        print("The grammar is not ambiguous")
+
+
+def replace_str_at_location(str_arr, i, replace_str):
+    replaced_arr = []
+    for j, c in enumerate(str_arr):
+        if i == j:
+            for s in replace_str:
+                replaced_arr.append(s)
+        else:
+            replaced_arr.append(c)
+    return replaced_arr
+
+
+def char_array_to_str(c_arr):
+    str = ""
+    for c in c_arr:
+        str += c
+    return str
+
+
+def parse_grammar_all_paths(exp, non_terminals, grammar_dict, exp_tokens, max_len=3):
+    all_exps = []
+    if get_exp_length(exp, exp_tokens) > max_len: # the max length is exceeded
+        return all_exps
+    if is_all_terminals(exp, non_terminals): # no more subsititutions can be made
+        all_exps.append(exp)
+        return all_exps
+    else:
+        # an expression with no alternations
+        if "|" not in exp:
+            for i, c in enumerate(exp):
+                if exp[i] in non_terminals:
+                    sub_exp = join_alternations(grammar_dict[exp[i]])
+                    if "|" in sub_exp: # if the sub-expression also has an alternation
+                        choices = sub_exp.split("|")
+                        for choice in choices:
+                            replaced_exp = replace_str_at_location(exp, i, choice)
+                            all_exps.extend(parse_grammar_all_paths(replaced_exp, non_terminals, grammar_dict, exp_tokens, max_len))
+                    else:
+                        replaced_exp = replace_str_at_location(exp, i, sub_exp)
+                        all_exps.extend(parse_grammar_all_paths(replaced_exp, non_terminals, grammar_dict, exp_tokens, max_len))
+                    break
+        else: #replace with a choice
+            exp = char_array_to_str(exp)
+            choices = exp.split("|")
+            for choice in choices:
+                all_exps.extend(parse_grammar_all_paths(choice, non_terminals, grammar_dict, exp_tokens, max_len))
+        return all_exps
+
+
+if __name__ == "__main__":
+    gen_all_strings(grammar_1)
+    gen_all_strings(grammar_2)
+
